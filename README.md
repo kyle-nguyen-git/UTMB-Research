@@ -8,3 +8,5 @@ Data was collected from Baylor College of Medicine
 Data was cleaned and prepped at Baylor
 
 DESeq2 was the main data processing library used
+
+Research presented at UTMB and University of Texas at Austin
