@@ -1,0 +1,102 @@
+# Load necessary libraries
+install.packages("circlize")
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+BiocManager::install("ComplexHeatmap")
+
+library(DESeq2)
+library(readxl)
+library(pheatmap)
+library(tidyverse)
+library(ComplexHeatmap)
+library(circlize)
+library(gridExtra)
+
+# Load the Excel file
+piRNA_mock_RSV <- read_excel("/Users/kylestopairdropping/Downloads/Data for Garafolo Research/piR-Mock-RSV.xlsx")
+piRNA_mock_RSV_details <- read_excel("/Users/kylestopairdropping/Downloads/Data for Garafolo Research/piR-Mock-RSV.xlsx", sheet = "Details")
+
+# Extract relevant columns and round the counts
+piRNA_mock_RSV_counts <- piRNA_mock_RSV[, 4:9]
+piRNA_mock_RSV_counts <- round(piRNA_mock_RSV_counts)
+
+# Create DESeqDataSet
+piRNA_mock_RSV_dds <- DESeqDataSetFromMatrix(countData = piRNA_mock_RSV_counts,
+                                             colData = piRNA_mock_RSV_details,
+                                             design = ~ group)
+
+# Run DESeq2 analysis
+piRNA_mock_RSV_dds <- DESeq(piRNA_mock_RSV_dds)
+
+# Get results and extract padj values
+piRNA_mock_RSV_results <- results(piRNA_mock_RSV_dds)
+padj_data4 <- piRNA_mock_RSV_results$padj
+
+# Create a data frame with the padj values
+export_data4 <- data.frame(Gene = (piRNA_mock_RSV$GeneID), piRNA_mock_RSV_results)
+
+sig_export_data4 <- export_data4 %>%
+  filter(padj <= 0.05) 
+
+# Load necessary library
+library(ggplot2)
+
+# Prepare data for volcano plot
+sig_export_data4 <- sig_export_data4 %>%
+  mutate(Significant = ifelse(padj <= 0.05, "Significant", "Not Significant"))
+
+# Create the volcano plot
+ggplot(sig_export_data4, aes(x = log2FoldChange, y = -log10(padj), color = Significant)) +
+  geom_point(alpha = 0.7, size = 2) + 
+  scale_color_manual(values = c("Significant" = "red", "Not Significant" = "grey")) + 
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "black") + 
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "black") + 
+  labs(title = "Volcano Plot of piRNA Differential Expression (RSV)",
+       x = "Log2 Fold Change",
+       y = "-Log10 Adjusted P-value") +
+  theme_minimal() + 
+  theme(legend.position = "top")
+
+# Prepare data for heatmap
+# Extract significant genes
+significant_genes4 <- sig_export_data4$Gene
+
+# Get the count data for significant genes
+heatmap_data4 <- piRNA_mock_RSV %>%
+  filter(GeneID %in% significant_genes4) %>%
+  select(4:9) %>%
+  as.matrix()
+
+# Add row names to the matrix
+rownames(heatmap_data4) <- piRNA_mock_RSV %>%
+  filter(GeneID %in% significant_genes4) %>%
+  pull(GeneID)
+
+# Normalize the data for better visualization
+heatmap_data4 <- t(scale(t(heatmap_data4)))
+
+# Generate the heatmap
+Heatmap(heatmap_data4,
+        name = "Expression",
+        show_row_names = TRUE,
+        show_column_names = TRUE,
+        cluster_rows = TRUE,
+        cluster_columns = TRUE,
+        column_title = "Samples",
+        row_title = "Genes",
+        col = colorRamp2(c(-2, 0, 2), c("blue", "white", "red")))
+
+# Set the working directory to your desired path (change the path as needed)
+setwd("/Users/kylestopairdropping/Downloads")
+
+# Filter the significant miRNAs with padj <= 0.05
+sig_miRNAs_0.05 <- export_data4 %>%
+  filter(padj <= 0.05) %>%
+  select(Gene)
+
+# Print the list of significant miRNAs
+print(sig_miRNAs_0.05)
+
+# Save the list to a file
+write.csv(sig_miRNAs_0.05, "significant_miRNAs_padj_0.05.csv", row.names = FALSE)
