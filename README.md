@@ -1,8 +1,6 @@
 # UTMB-Research
 R-Studio Code for UTMB Research- Summer 2024
 
-Here is a `README.md` draft written in the same style and structure as the example you provided, based on your R script:
-
 ---
 
 ## Analysis Scripts Developed During Summer 2025 Research Internship
